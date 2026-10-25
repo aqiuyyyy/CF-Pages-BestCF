@@ -2191,3 +2191,102 @@ function friendlyError(error) {
 	if (error.name === "AbortError") return "请求超时或已停止";
 	return error.message || "操作失败";
 }
+
+// ==================== 本地测速 ====================
+// 在本机浏览器直接测速：延迟走 speed.cloudflare.com/cdn-cgi/trace（3 次取最小），
+// 下载走 speed.cloudflare.com/__down，上传走 speed.cloudflare.com/__up。
+// 若测速端点本身不可达（被墙/被挡），会直接提示，不会误报为网络慢。
+let localSpeedController = null;
+let localSpeedRunning = false;
+
+function setLocalSpeedProgress(percent, status) {
+	const bar = document.getElementById("localSpeedProgress");
+	const statusEl = document.getElementById("localSpeedStatus");
+	const tag = document.getElementById("localSpeedTag");
+	if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+	if (statusEl) statusEl.textContent = status;
+	if (tag) tag.textContent = status;
+}
+
+async function measureLocalLatency(signal) {
+	let best = Infinity;
+	for (let i = 0; i < 3; i++) {
+		const start = performance.now();
+		const res = await fetch(`https://speed.cloudflare.com/cdn-cgi/trace?_t=${Date.now()}`, { cache: "no-store", signal });
+		await res.text();
+		best = Math.min(best, performance.now() - start);
+	}
+	return best;
+}
+
+async function measureLocalDownload(bytes, signal, onProgress) {
+	const start = performance.now();
+	const res = await fetch(`https://speed.cloudflare.com/__down?bytes=${bytes}`, { cache: "no-store", signal });
+	if (!res.ok || !res.body) throw new Error(`下载测试 HTTP ${res.status}`);
+	const reader = res.body.getReader();
+	let received = 0;
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		received += value.length;
+		onProgress(received / bytes);
+	}
+	const seconds = (performance.now() - start) / 1000;
+	return (received * 8) / seconds / 1e6;
+}
+
+async function measureLocalUpload(signal) {
+	const bytes = 5 * 1024 * 1024;
+	const data = new Uint8Array(bytes);
+	crypto.getRandomValues(data);
+	const start = performance.now();
+	const res = await fetch("https://speed.cloudflare.com/__up", { method: "POST", body: data, cache: "no-store", signal });
+	if (!res.ok) throw new Error(`上传测试 HTTP ${res.status}`);
+	await res.text();
+	const seconds = (performance.now() - start) / 1000;
+	return (bytes * 8) / seconds / 1e6;
+}
+
+async function runLocalSpeedTest() {
+	const btn = document.getElementById("localSpeedBtn");
+	if (!btn) return;
+	if (localSpeedRunning) {
+		if (localSpeedController) localSpeedController.abort();
+		return;
+	}
+	localSpeedRunning = true;
+	localSpeedController = new AbortController();
+	const signal = localSpeedController.signal;
+	btn.textContent = "停止测速";
+	btn.classList.add("danger");
+	try {
+		setLocalSpeedProgress(5, "正在测延迟…");
+		const latency = await measureLocalLatency(signal);
+		document.getElementById("localSpeedLatency").textContent = latency.toFixed(0);
+		setLocalSpeedProgress(35, "正在测下载…");
+		const size = Number(document.getElementById("localSpeedSizeSelect").value) || 25000000;
+		const download = await measureLocalDownload(size, signal, (p) => setLocalSpeedProgress(35 + p * 40, "正在测下载…"));
+		document.getElementById("localSpeedDownload").textContent = download.toFixed(1);
+		setLocalSpeedProgress(80, "正在测上传…");
+		const upload = await measureLocalUpload(signal);
+		document.getElementById("localSpeedUpload").textContent = upload.toFixed(1);
+		setLocalSpeedProgress(100, "测速完成");
+	} catch (error) {
+		if (error && error.name === "AbortError") {
+			setLocalSpeedProgress(0, "已停止");
+		} else {
+			console.error("[本地测速] 失败:", error);
+			setLocalSpeedProgress(0, "测速端点不可达，请换网络或代理后再试");
+		}
+	} finally {
+		localSpeedRunning = false;
+		localSpeedController = null;
+		btn.textContent = "开始本地测速";
+		btn.classList.remove("danger");
+	}
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+	const btn = document.getElementById("localSpeedBtn");
+	if (btn) btn.addEventListener("click", runLocalSpeedTest);
+});
