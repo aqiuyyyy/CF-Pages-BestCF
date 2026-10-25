@@ -232,6 +232,38 @@
 			</div>
 		</div>
 
+			<section class="panel" aria-labelledby="localSpeedTitle">
+				<div class="panel-head">
+					<h2 class="panel-title" id="localSpeedTitle">本地测速</h2>
+					<span class="tag idle" id="localSpeedTag">未开始</span>
+				</div>
+				<div class="panel-body">
+					<p class="tiny muted">在本机浏览器直接测当前网络的延迟、下载和上传速度，不走优选域名列表，适合先判断本地网络本身快不快，再跟优选结果对比。</p>
+					<div class="control-row">
+						<div class="field">
+							<label for="localSpeedSizeSelect">下载测试大小</label>
+							<select class="select" id="localSpeedSizeSelect">
+								<option value="10000000">10 MB</option>
+								<option value="25000000" selected>25 MB</option>
+								<option value="50000000">50 MB</option>
+							</select>
+						</div>
+						<div class="control-row-actions">
+							<button class="btn" id="localSpeedBtn" type="button">开始本地测速</button>
+						</div>
+					</div>
+					<div class="local-speed-grid">
+						<div class="local-speed-item"><div class="local-speed-kind">延迟</div><strong id="localSpeedLatency">--</strong><span class="tiny muted">ms</span></div>
+						<div class="local-speed-item"><div class="local-speed-kind">下载</div><strong id="localSpeedDownload">--</strong><span class="tiny muted">Mbps</span></div>
+						<div class="local-speed-item"><div class="local-speed-kind">上传</div><strong id="localSpeedUpload">--</strong><span class="tiny muted">Mbps</span></div>
+					</div>
+					<div class="progress">
+						<div class="progress-meta"><span class="tiny muted" id="localSpeedStatus">未开始</span></div>
+						<div class="progress-line" aria-hidden="true"><div class="progress-bar" id="localSpeedProgress"></div></div>
+					</div>
+				</div>
+			</section>
+
 		<p class="bestcf-credit">
 			📮 优选域名投稿：编辑 <a href="https://github.com/cmliu/CF-Pages-BestCF/edit/main/cf_domains.txt" target="_blank"
 				rel="noopener noreferrer">cf_domains.txt</a> 添加域名并提交 Pull Request，共同维护优选域名池
