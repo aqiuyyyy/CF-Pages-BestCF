@@ -2172,3 +2172,9 @@ html.dark-mode .row-speed-btn:hover{color:#93c5fd}
   .result-wrap table{min-width:640px}
   .speed-cell{min-width:120px}
 }
+
+/* 视频里测速逻辑的样式：测中灰字，测完粗体蓝字带下划线 */
+.row-speed-btn.is-testing{color:#9ca3af;font-weight:400;text-decoration:none}
+html.dark-mode .row-speed-btn.is-testing{color:#9ca3af}
+.row-speed-btn.is-measured{text-decoration:underline}
+html.dark-mode .row-speed-btn.is-measured{text-decoration:underline}

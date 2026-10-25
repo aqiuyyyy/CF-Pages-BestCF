@@ -2243,9 +2243,9 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal, onProgress) {
-	// Speedtest 方式，测速时间固定为 seconds 秒：先尝试该域名的大文件下载（__down，1GB），
-	// 在 seconds 秒内按实际收到字节算真实 Mbps，超时即停，不用等 1GB 下完。
-	// __down 不可用时回退到 trace 并发重复请求，同样跑 seconds 秒，显示相对速度。
+	// 跟视频里 IP 版一样的短测逻辑：先尝试该域名的大文件下载（__down，25MB），
+	// 下完即停，按实际字节/实际耗时算真实 Mbps，不用等满固定时长；seconds 只作上限兜底。
+	// __down 不可用时回退到 trace 并发重复请求，同样按上限时间算，显示相对速度。
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
 	const downController = new AbortController();
 	const onOuterAbort = () => downController.abort();
@@ -2253,7 +2253,7 @@ async function measureDomainDownload(parsed, seconds, signal, onProgress) {
 	const timer = window.setTimeout(() => downController.abort(), seconds * 1000);
 	try {
 		const downStart = performance.now();
-		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
+		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=25000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
 		if (downRes.ok && downRes.body) {
 			const reader = downRes.body.getReader();
 			let received = 0;
@@ -2373,16 +2373,20 @@ async function runSingleDomainSpeedTest(id, btn) {
 	if (!parsed) return;
 	btn.dataset.testing = "1";
 	btn.disabled = true;
-	btn.textContent = "测速中…";
+	btn.classList.remove("is-measured");
+	btn.classList.add("is-testing");
+	btn.textContent = "0.00Mbps";
 	try {
-		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 10) || 10;
+		const seconds = 3;
 		const controller = new AbortController();
 		const dl = await measureDomainDownload(parsed, seconds, controller.signal, (mbps) => { if (btn) btn.textContent = `${mbps.toFixed(2)}Mbps`; });
 		item.mbps = dl.mbps;
 		item.method = dl.method;
 		btn.textContent = dl.method === "real" ? `${dl.mbps.toFixed(2)}Mbps` : `${dl.mbps.toFixed(2)}Mbps（相对）`;
+		btn.classList.remove("is-testing");
 		btn.classList.add("is-measured");
 	} catch (error) {
+		btn.classList.remove("is-testing");
 		btn.textContent = "失败，重测";
 	} finally {
 		delete btn.dataset.testing;
