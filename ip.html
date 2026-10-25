@@ -2029,21 +2029,28 @@
 									</div>
 									<div class="field">
 										<div class="label-row">
-											<label for="portInput">优选端口</label>
+											<label for="portSelect">优选端口</label>
 											<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
-												data-tip="端口为 0 时按端口系列随机：443系只随机 443、2053、2083、2087、2096、8443，80系只随机 80、8080、8880、2052、2082、2086、2095；80 系用 443 测同一边缘，结果端口仍为 80 系。">!</span>
+												data-tip="选择「随机端口」时，将在 443、2053、2083、2087、2096、8443 中随机选取；80 系端口需单独选择，80 系用 443 测同一边缘，结果端口仍为 80 系。">!</span>
 										</div>
-										<input class="input" id="portInput" type="number" min="0" max="65535"
-											step="1" value="0">
-									</div>
-									<div class="field">
-										<label for="portSeriesSelect">端口系列</label>
-										<select class="select" id="portSeriesSelect">
-											<option value="tls">443系</option>
-											<option value="http">80系</option>
+										<select class="select" id="portSelect">
+											<option value="0">随机端口</option>
+											<option value="443">443</option>
+											<option value="2053">2053</option>
+											<option value="2083">2083</option>
+											<option value="2087">2087</option>
+											<option value="2096">2096</option>
+											<option value="8443">8443</option>
+											<option value="80">80</option>
+											<option value="8080">8080</option>
+											<option value="8880">8880</option>
+											<option value="2052">2052</option>
+											<option value="2082">2082</option>
+											<option value="2086">2086</option>
+											<option value="2095">2095</option>
 										</select>
 									</div>
-								</div>
+</div>
 							</div>
 						</details>
 
@@ -2203,7 +2210,6 @@
 		const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 		const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
 		function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
-		let portSeriesMode = "tls";
 		const BEST_HOSTS = [
 			//"bestcf.cmliussss.hidns.vip",
 			"ns.psb.kdns.fr"
@@ -2342,8 +2348,7 @@
 			limitInput: $("#limitInput"),
 			timeoutInput: $("#timeoutInput"),
 			threadsInput: $("#threadsInput"),
-			portInput: $("#portInput"),
-			portSeriesSelect: $("#portSeriesSelect"),
+			portSelect: $("#portSelect"),
 			latencyBtn: $("#latencyBtn"),
 			latencyStatus: $("#latencyStatus"),
 			latencyProgress: $("#latencyProgress"),
@@ -2390,7 +2395,7 @@
 				els.ipInput.value = "";
 				updateEditorMeta();
 			});
-			[els.limitInput, els.timeoutInput, els.threadsInput, els.portInput].forEach((input) => {
+			[els.limitInput, els.timeoutInput, els.threadsInput].forEach((input) => {
 				input.addEventListener("change", () => clampNumberInput(input));
 			});
 			els.latencyBtn.addEventListener("click", async () => {
@@ -4605,8 +4610,7 @@
 
 		function choosePort(preferredPort) {
 			if (preferredPort > 0) return preferredPort;
-			const pool = portSeriesMode === "http" ? HTTP_PORTS : TLS_PORTS;
-			return pool[Math.floor(Math.random() * pool.length)];
+			return TLS_PORTS[Math.floor(Math.random() * TLS_PORTS.length)];
 		}
 
 		function validPortOrDefault(value, fallback) {
@@ -4616,13 +4620,12 @@
 		}
 
 		function readSettings() {
-			[els.limitInput, els.timeoutInput, els.threadsInput, els.portInput].forEach((input) => clampNumberInput(input));
-			portSeriesMode = els.portSeriesSelect ? els.portSeriesSelect.value : "tls";
+			[els.limitInput, els.timeoutInput, els.threadsInput].forEach((input) => clampNumberInput(input));
 			return {
 				limit: Number(els.limitInput.value),
 				timeout: Number(els.timeoutInput.value),
 				threads: Number(els.threadsInput.value),
-				port: Number(els.portInput.value)
+				port: Number(els.portSelect.value)
 			};
 		}
 
