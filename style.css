@@ -1736,11 +1736,11 @@ td.ip-cell {
 
 html.dark-mode {
 	color-scheme: dark;
-	--bg: #0f172a;
+	--bg: #0a0f1e;
 	--panel: #111827;
-	--panel-soft: #182235;
+	--panel-soft: #1b2538;
 	--text: #e5e7eb;
-	--muted: #9ca3af;
+	--muted: #94a3b8;
 	--line: #263247;
 	--line-strong: #3a475c;
 	--blue: #60a5fa;
@@ -2152,4 +2152,23 @@ html.dark-mode .local-tools-error {
 @media (max-width:640px){
 	.result-wrap table{min-width:600px}
 	.row-speed-btn{font-size:12px;padding:6px 8px}
+}
+
+/* 截图样式：进度条与优选结果速度列 */
+html.dark-mode .progress-meta{font-size:15px;color:var(--text)}
+html.dark-mode .progress-meta .tiny{font-size:15px;color:var(--text)}
+html.dark-mode .progress-line{height:10px;background:#1f2937}
+html.dark-mode .progress-bar{background:linear-gradient(90deg,#2563eb,#10b981)}
+.panel-head .panel-title{font-size:18px;font-weight:800}
+#resultCount{border-radius:999px;padding:6px 14px;font-size:13px}
+html.dark-mode #resultCount{background:#1f2937;color:#e5e7eb;border-color:transparent}
+html.dark-mode th{background:#1b2538;color:#cbd5e1}
+.row-speed-btn.is-measured{font-weight:800;color:#2563eb;font-size:14px}
+html.dark-mode .row-speed-btn{background:transparent;border:0;color:#60a5fa;font-weight:600;padding:6px 4px;min-width:0}
+html.dark-mode .row-speed-btn.is-measured{color:#60a5fa;font-weight:800;font-size:14px}
+html.dark-mode .row-speed-btn:hover{color:#93c5fd}
+.speed-cell{min-width:120px}
+@media (max-width:640px){
+  .result-wrap table{min-width:640px}
+  .speed-cell{min-width:120px}
 }

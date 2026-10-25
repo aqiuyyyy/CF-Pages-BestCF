@@ -4,9 +4,9 @@ let themeMode = readCachedThemeMode();
 function readCachedThemeMode() {
 	try {
 		const mode = window.localStorage.getItem(THEME_MODE_CACHE_KEY);
-		return mode === "light" || mode === "dark" ? mode : "auto";
+		return mode === "light" || mode === "dark" ? mode : "dark";
 	} catch (error) {
-		return "auto";
+		return "dark";
 	}
 }
 
@@ -1205,7 +1205,7 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
-		  <td class="speed-cell"><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.mbps ? `${item.mbps.toFixed(1)} Mbps` : "测速"}</button></td>
+		  <td class="speed-cell"><button class="btn secondary row-speed-btn${item.mbps ? " is-measured" : ""}" type="button" data-row-speed="${escapeHtml(id)}" title="点击重测">${item.mbps ? `${item.mbps.toFixed(2)}Mbps` : "≋ 测速"}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
@@ -2242,7 +2242,7 @@ async function measureDomainLatency(parsed, signal) {
 	return Math.max(1, Math.round(best));
 }
 
-async function measureDomainDownload(parsed, seconds, signal) {
+async function measureDomainDownload(parsed, seconds, signal, onProgress) {
 	// Speedtest 方式，测速时间固定为 seconds 秒：先尝试该域名的大文件下载（__down，1GB），
 	// 在 seconds 秒内按实际收到字节算真实 Mbps，超时即停，不用等 1GB 下完。
 	// __down 不可用时回退到 trace 并发重复请求，同样跑 seconds 秒，显示相对速度。
@@ -2257,11 +2257,17 @@ async function measureDomainDownload(parsed, seconds, signal) {
 		if (downRes.ok && downRes.body) {
 			const reader = downRes.body.getReader();
 			let received = 0;
+			let lastProgress = 0;
 			try {
 				while (true) {
 					const { done, value } = await reader.read();
 					if (done) break;
 					received += value.length;
+					const now = performance.now();
+					if (typeof onProgress === "function" && now - lastProgress > 400 && received > 0) {
+						lastProgress = now;
+						onProgress((received * 8) / Math.max(0.001, (now - downStart) / 1000) / 1e6);
+					}
 				}
 			} catch (error) {
 				// 超时中断属于正常结束，按已收到字节算速度；其他错误则继续回退
@@ -2371,10 +2377,11 @@ async function runSingleDomainSpeedTest(id, btn) {
 	try {
 		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 10) || 10;
 		const controller = new AbortController();
-		const dl = await measureDomainDownload(parsed, seconds, controller.signal);
+		const dl = await measureDomainDownload(parsed, seconds, controller.signal, (mbps) => { if (btn) btn.textContent = `${mbps.toFixed(2)}Mbps`; });
 		item.mbps = dl.mbps;
 		item.method = dl.method;
-		btn.textContent = dl.method === "real" ? `${dl.mbps.toFixed(1)} Mbps` : `${dl.mbps.toFixed(1)} Mbps（相对）`;
+		btn.textContent = dl.method === "real" ? `${dl.mbps.toFixed(2)}Mbps` : `${dl.mbps.toFixed(2)}Mbps（相对）`;
+		btn.classList.add("is-measured");
 	} catch (error) {
 		btn.textContent = "失败，重测";
 	} finally {
