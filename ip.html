@@ -2031,7 +2031,7 @@
 										<div class="label-row">
 											<label for="portInput">优选端口</label>
 											<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
-												data-tip="端口为 0 时，随机设置 443、2053、2083、2087、2096、8443 端口。">!</span>
+												data-tip="端口为 0 时，随机设置 443、2053、2083、2087、2096、8443、80、8080、8880、2052、2082、2086、2095 端口；80 系端口用 443 测同一边缘，结果端口仍为 80 系。">!</span>
 										</div>
 										<input class="input" id="portInput" type="number" min="0" max="65535"
 											step="1" value="0">
@@ -2194,6 +2194,8 @@
 			// Standalone demo mode does not need parent theme sync.
 		}
 		const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+		const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
+		function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
 		const BEST_HOSTS = [
 			//"bestcf.cmliussss.hidns.vip",
 			"ns.psb.kdns.fr"
@@ -4466,7 +4468,10 @@
 				? ipv4ToHexLabel(parsed.ip)
 				: parsed.ip.toLowerCase().replace(/:/g, "-");
 			const search = new URLSearchParams({ _t: String(Date.now()), ...params });
-			return `https://${label}.${getActiveBestHost()}:${parsed.port}/${path}?${search.toString()}`;
+			// 80 系是 HTTP 端口，https 页面对它发 https 会握手失败（已实测 https://*.ns.psb.kdns.fr:80/8080/2052 均失败，http 才通，且 https 页发 http 会被混合内容拦截）。
+			// 延迟和速度测的是同一 IP 边缘，80 系候选仍走 443 测，结果里的端口仍保留所选 80 系端口。
+			const probePort = isHttpPort(parsed.port) ? 443 : parsed.port;
+			return `https://${label}.${getActiveBestHost()}:${probePort}/${path}?${search.toString()}`;
 		}
 
 		function ipv4ToHexLabel(ip) {
@@ -4591,7 +4596,8 @@
 
 		function choosePort(preferredPort) {
 			if (preferredPort > 0) return preferredPort;
-			return TLS_PORTS[Math.floor(Math.random() * TLS_PORTS.length)];
+			const allPorts = TLS_PORTS.concat(HTTP_PORTS);
+			return allPorts[Math.floor(Math.random() * allPorts.length)];
 		}
 
 		function validPortOrDefault(value, fallback) {
