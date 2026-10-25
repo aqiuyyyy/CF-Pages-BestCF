@@ -2167,7 +2167,6 @@
 			<div class="network-warning-actions">
 				<button class="btn btn-local-warning" id="networkWarningLocalBtn" type="button">本地优选</button>
 				<button class="btn" id="networkWarningCloseBtn" type="button">关闭</button>
-				<button class="btn" id="networkWarningConfirmBtn" type="button">确定</button>
 			</div>
 		</div>
 	</div>
@@ -2372,7 +2371,6 @@
 			networkWarningSummary: $("#networkWarningSummary"),
 			networkWarningDetails: $("#networkWarningDetails"),
 			networkWarningJson: $("#networkWarningJson"),
-			networkWarningConfirmBtn: $("#networkWarningConfirmBtn"),
 			networkWarningLocalBtn: $("#networkWarningLocalBtn"),
 			networkWarningCloseBtn: $("#networkWarningCloseBtn")
 		};
@@ -2489,7 +2487,6 @@
 				saveSelectedResults();
 			});
 			els.closeBestCFBtn.addEventListener("click", closeBestCFModule);
-			els.networkWarningConfirmBtn.addEventListener("click", confirmNetworkWarning);
 			els.networkWarningLocalBtn.addEventListener("click", openLocalOptimizeFromWarning);
 			if (els.networkWarningCloseBtn) els.networkWarningCloseBtn.addEventListener("click", closeNetworkWarning);
 			document.querySelectorAll("[data-sort]").forEach((button) => {
@@ -2681,7 +2678,7 @@
 		function showNetworkWarning() {
 			renderNetworkWarning(buildNetworkWarningContext());
 			els.networkWarningOverlay.classList.add("is-visible");
-			els.networkWarningConfirmBtn.focus();
+			if (els.networkWarningCloseBtn) els.networkWarningCloseBtn.focus();
 		}
 
 		function buildNetworkWarningContext() {
@@ -2758,26 +2755,6 @@
 				<span class="network-warning-ip">${escapeHtml(error)}</span>
 				<span class="network-warning-country">失败</span>
 			</div>`;
-		}
-
-		function confirmNetworkWarning() {
-			if (window.parent && window.parent !== window) {
-				try {
-					window.parent.location.reload();
-					return;
-				} catch (error) {
-					// Fall back to postMessage below when direct parent access is unavailable.
-				}
-
-				try {
-					window.parent.postMessage({ type: "bestcf-force-reload" }, "*");
-					return;
-				} catch (error) {
-					// Ignore and reload the current document as a last resort.
-				}
-			}
-
-			window.location.reload();
 		}
 
 		function closeNetworkWarning() {
