@@ -2248,7 +2248,7 @@ async function measureDomainDownload(parsed, seconds, signal) {
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
 	try {
 		const downStart = performance.now();
-		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=100000000&_t=${Date.now()}`, { cache: "no-store", signal });
+		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal });
 		if (downRes.ok && downRes.body) {
 			const reader = downRes.body.getReader();
 			let received = 0;
