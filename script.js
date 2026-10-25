@@ -2243,69 +2243,66 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal, onProgress) {
-	// 跟他（EDT-Pages admin 内嵌 BestCF IP 版，testDownloadSpeed）一样的逻辑：时间上限 10 秒（maxDuration=10000），
-	// 下载大小不限制：请求 1GB，10 秒内下不完，大小不起限制作用；到 10 秒即停，按实际收到字节/实际耗时算 Mbps。
-	// 他原版是 20MB/10 秒先到先停，这里按用户要求把大小放开、只留 10 秒时间上限；__down 不可用时回退 trace，同样只跑 10 秒，显示相对速度。
+	// 抄他的 testDownloadSpeed（EDT-Pages admin 内嵌 BestCF IP 版），不改：__down?bytes=20000000，maxDuration=10000。
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
-	const downController = new AbortController();
-	const onOuterAbort = () => downController.abort();
+	const url = `https://${parsed.host}${portSuffix}/__down?bytes=20000000&_t=${Date.now()}`;
+	const controller = new AbortController();
+	const onOuterAbort = () => controller.abort();
 	if (signal) signal.addEventListener("abort", onOuterAbort, { once: true });
-	const timer = window.setTimeout(() => downController.abort(), seconds * 1000);
-	try {
-		const downStart = performance.now();
-		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
-		if (downRes.ok && downRes.body) {
-			const reader = downRes.body.getReader();
-			let received = 0;
-			let lastProgress = 0;
-			try {
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					received += value.length;
-					const now = performance.now();
-					if (typeof onProgress === "function" && now - lastProgress > 250 && received > 0) {
-						lastProgress = now;
-						onProgress((received * 8) / Math.max(0.001, (now - downStart) / 1000) / 1e6);
-					}
-				}
-			} catch (error) {
-				// 超时中断属于正常结束，按已收到字节算速度；其他错误则继续回退
-				if (downController.signal.aborted && received > 0) {
-					const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
-					return { mbps: (received * 8) / secs / 1e6, method: "real" };
-				}
-				if (signal && signal.aborted) throw error;
-			}
-			if (received > 0) {
-				const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
-				return { mbps: (received * 8) / secs / 1e6, method: "real" };
-			}
-		}
-	} catch (error) {
-		if (signal && signal.aborted) throw error;
-		// __down 不可用时继续回退到 trace 方式
-	} finally {
-		window.clearTimeout(timer);
-		if (signal) signal.removeEventListener("abort", onOuterAbort);
-	}
-	const deadline = performance.now() + seconds * 1000;
+	const maxDuration = seconds * 1000;
+	let timedOut = false;
 	let totalBytes = 0;
-	const worker = async () => {
-		while (performance.now() < deadline && !signal.aborted) {
-			try {
-				const res = await fetch(buildTraceUrl(parsed.host, parsed.port), { cache: "no-store", signal });
-				if (!res.ok) break;
-				const text = await res.text();
-				totalBytes += text.length;
-			} catch (error) {
+	let started = 0;
+	let ticker = null;
+	const timeout = window.setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, maxDuration);
+	const finishSpeed = () => {
+		const elapsed = Math.max(1, performance.now() - started);
+		return totalBytes > 0 ? (totalBytes * 8) / (elapsed / 1000) / 1000000 : 0;
+	};
+	const reportProgress = () => {
+		if (typeof onProgress === "function") onProgress(finishSpeed());
+	};
+	try {
+		started = performance.now();
+		if (typeof onProgress === "function") onProgress(0);
+		ticker = window.setInterval(reportProgress, 250);
+		const response = await fetch(url, { method: "GET", cache: "no-store", signal: controller.signal });
+		if (!response.ok) throw new Error("下载失败");
+		if (!response.body || !response.body.getReader) {
+			const buffer = await response.arrayBuffer();
+			totalBytes = buffer.byteLength;
+			if (typeof onProgress === "function") onProgress(finishSpeed());
+			return { mbps: finishSpeed(), method: "real" };
+		}
+		const reader = response.body.getReader();
+		while (true) {
+			if (performance.now() - started >= maxDuration) {
+				timedOut = true;
+				controller.abort();
 				break;
 			}
+			const { done, value } = await reader.read();
+			if (done) break;
+			const size = value.byteLength || value.length || 0;
+			totalBytes += size;
+			reportProgress();
 		}
-	};
-	await Promise.all(Array.from({ length: 8 }, () => worker()));
-	if (signal.aborted) throw new Error("已停止");
-	return { mbps: (totalBytes / seconds / 1024 / 1024) * 8, method: "relative", kbps: totalBytes / seconds / 1024 };
+		if (typeof onProgress === "function") onProgress(finishSpeed());
+		return { mbps: finishSpeed(), method: "real" };
+	} catch (error) {
+		if (timedOut && totalBytes > 0) {
+			if (typeof onProgress === "function") onProgress(finishSpeed());
+			return { mbps: finishSpeed(), method: "real" };
+		}
+		throw error;
+	} finally {
+		window.clearTimeout(timeout);
+		if (ticker) window.clearInterval(ticker);
+		if (signal) signal.removeEventListener("abort", onOuterAbort);
+	}
 }
 
 async function runLocalSpeedTest() {
