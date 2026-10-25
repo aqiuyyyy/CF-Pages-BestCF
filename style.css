@@ -2134,3 +2134,10 @@ html.dark-mode .local-tools-error {
 		width: 100%;
 	}
 }
+
+/* 本地测速 */
+.local-speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.local-speed-item{border:1px solid var(--border, #e5e7eb);border-radius:12px;padding:14px 16px}
+.local-speed-kind{font-size:13px;opacity:.7;margin-bottom:6px}
+.local-speed-item strong{font-size:22px;margin-right:4px}
+@media (max-width:640px){.local-speed-grid{grid-template-columns:1fr}}
