@@ -2243,19 +2243,33 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal) {
-	// Speedtest 方式：先尝试该域名的大文件下载（__down），成功则按实际字节算真实 Mbps。
-	// 任意优选域名没有统一的大文件，__down 不可用时回退到 trace 并发重复请求，算相对速度。
+	// Speedtest 方式，测速时间固定为 seconds 秒：先尝试该域名的大文件下载（__down，1GB），
+	// 在 seconds 秒内按实际收到字节算真实 Mbps，超时即停，不用等 1GB 下完。
+	// __down 不可用时回退到 trace 并发重复请求，同样跑 seconds 秒，显示相对速度。
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
+	const downController = new AbortController();
+	const onOuterAbort = () => downController.abort();
+	if (signal) signal.addEventListener("abort", onOuterAbort, { once: true });
+	const timer = window.setTimeout(() => downController.abort(), seconds * 1000);
 	try {
 		const downStart = performance.now();
-		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal });
+		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
 		if (downRes.ok && downRes.body) {
 			const reader = downRes.body.getReader();
 			let received = 0;
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				received += value.length;
+			try {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					received += value.length;
+				}
+			} catch (error) {
+				// 超时中断属于正常结束，按已收到字节算速度；其他错误则继续回退
+				if (downController.signal.aborted && received > 1000000) {
+					const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
+					return { mbps: (received * 8) / secs / 1e6, method: "real" };
+				}
+				if (signal && signal.aborted) throw error;
 			}
 			if (received > 1000000) {
 				const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
@@ -2263,8 +2277,11 @@ async function measureDomainDownload(parsed, seconds, signal) {
 			}
 		}
 	} catch (error) {
-		if (signal.aborted) throw error;
+		if (signal && signal.aborted) throw error;
 		// __down 不可用时继续回退到 trace 方式
+	} finally {
+		window.clearTimeout(timer);
+		if (signal) signal.removeEventListener("abort", onOuterAbort);
 	}
 	const deadline = performance.now() + seconds * 1000;
 	let totalBytes = 0;
@@ -2306,7 +2323,7 @@ async function runLocalSpeedTest() {
 	const signal = localSpeedController.signal;
 	btn.textContent = "停止测速";
 	btn.classList.add("danger");
-	const seconds = Number(document.getElementById("localSpeedSizeSelect").value) || 5;
+	const seconds = Number(document.getElementById("localSpeedSizeSelect").value) || 10;
 	const rows = [];
 	try {
 		for (let i = 0; i < targets.length; i++) {
@@ -2352,7 +2369,7 @@ async function runSingleDomainSpeedTest(id, btn) {
 	btn.disabled = true;
 	btn.textContent = "测速中…";
 	try {
-		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 5) || 5;
+		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 10) || 10;
 		const controller = new AbortController();
 		const dl = await measureDomainDownload(parsed, seconds, controller.signal);
 		item.mbps = dl.mbps;
