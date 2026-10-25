@@ -239,7 +239,7 @@
 					<span class="tag idle" id="localSpeedTag">未开始</span>
 				</div>
 				<div class="panel-body">
-					<p class="tiny muted">直接对优选结果里的域名测速，不走 speed.cloudflare.com。先在优选结果里勾选要测的域名，不勾选默认测延迟最低的前 10 个。每个域名先测 3 次延迟取最小，再用该域名自己的 /cdn-cgi/trace 并发重复请求计总字节，得到相对下载速度，用于域名之间排序。</p>
+					<p class="tiny muted">直接对优选结果里的域名测真实带宽（Speedtest 方式：多连接并行下载、按实际传输字节算 Mbps）。先在优选结果里勾选要测的域名，不勾选默认测延迟最低的前 10 个。每个域名先测 3 次延迟取最小，再并行下载该域名的大文件测带宽；若该域名本身不提供大文件下载，则回退到该域名自己的 /cdn-cgi/trace 并发重复请求，显示相对速度并在状态里注明。</p>
 					<div class="control-row">
 						<div class="field">
 							<label for="localSpeedSizeSelect">每个域名测速时长</label>
@@ -263,7 +263,7 @@
 						<div class="progress-meta"><span class="tiny muted" id="localSpeedStatus">未开始</span></div>
 						<div class="progress-line" aria-hidden="true"><div class="progress-bar" id="localSpeedProgress"></div></div>
 					</div>
-					<p class="tiny muted">说明：浏览器里对任意优选域名没有统一的大文件可下载，所以相对速度是 trace 重复请求的吞吐，不是绝对带宽（Mbps），只适合在这些域名之间比快慢。</p>
+					<p class="tiny muted">说明：Speedtest 方式需要该域名能提供可下载的大文件；浏览器里对任意优选域名没有统一的大文件，所以先尝试该域名的 __down 大文件下载，成功显示真实 Mbps，不成功则用 trace 并发请求显示相对速度（状态里注明“相对”），只适合在这些域名之间比快慢。</p>
 				</div>
 			</section>
 
