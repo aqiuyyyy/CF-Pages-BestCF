@@ -366,10 +366,10 @@ button {
 
 .help-tip::after {
 	position: absolute;
-	right: 50%;
+	left: 0;
 	bottom: calc(100% + 9px);
 	width: max-content;
-	max-width: min(300px, 72vw);
+	max-width: min(320px, calc(100vw - 24px));
 	padding: 8px 10px;
 	border: 1px solid #d8c073;
 	border-radius: var(--radius);
@@ -382,7 +382,7 @@ button {
 	line-height: 1.45;
 	opacity: 0;
 	pointer-events: none;
-	transform: translate(50%, 4px);
+	transform: translateY(4px);
 	transition: opacity 0.15s ease, transform 0.15s ease;
 	z-index: 4;
 	white-space: normal;
@@ -390,7 +390,7 @@ button {
 
 .help-tip::before {
 	position: absolute;
-	right: 50%;
+	left: 4px;
 	bottom: calc(100% + 4px);
 	width: 9px;
 	height: 9px;
@@ -400,7 +400,7 @@ button {
 	content: "";
 	opacity: 0;
 	pointer-events: none;
-	transform: translate(50%, 4px) rotate(45deg);
+	transform: translateY(4px) rotate(45deg);
 	transition: opacity 0.15s ease, transform 0.15s ease;
 	z-index: 5;
 }
@@ -410,12 +410,12 @@ button {
 .help-tip:focus::after,
 .help-tip:focus::before {
 	opacity: 1;
-	transform: translate(50%, 0) rotate(0deg);
+	transform: translateY(0) rotate(0deg);
 }
 
 .help-tip:hover::before,
 .help-tip:focus::before {
-	transform: translate(50%, 0) rotate(45deg);
+	transform: rotate(45deg);
 }
 
 .control-row {

@@ -97,6 +97,18 @@ if (window.matchMedia) {
 	});
 }
 const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
+function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
+let portSeriesMode = "tls";
+function syncPortSelectOptions() {
+	if (!els.portSeriesSelect || !els.portSelect) return;
+	portSeriesMode = els.portSeriesSelect.value;
+	const pool = portSeriesMode === "http" ? HTTP_PORTS : TLS_PORTS;
+	const current = Number(els.portSelect.value);
+	els.portSelect.innerHTML = '<option value="0">随机端口</option>' + pool.map((port) => `<option value="${port}">${port}</option>`).join("");
+	els.portSelect.value = pool.includes(current) ? String(current) : "0";
+	if (els.portHelpTip) els.portHelpTip.setAttribute("data-tip", `选择「随机端口」时，将在 ${pool.join("、")} 中随机选取。`);
+}
 // CIDR/IP区间随机采样的候选总量上限（与原“待测IP数”默认值一致）
 const CANDIDATE_LIMIT = 512;
 const BEST_HOSTS = [
@@ -207,6 +219,8 @@ const els = {
 	timeoutInput: $("#timeoutInput"),
 	threadsInput: $("#threadsInput"),
 	portSelect: $("#portSelect"),
+	portSeriesSelect: $("#portSeriesSelect"),
+	portHelpTip: $("#portHelpTip"),
 	latencyBtn: $("#latencyBtn"),
 	themeToggleBtn: $("#themeToggleBtn"),
 	latencyStatus: $("#latencyStatus"),
@@ -294,6 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindEvents() {
 	els.themeToggleBtn.addEventListener("click", toggleThemeMode);
 	els.domainImportBtn.addEventListener("click", importCfDomains);
+	if (els.portSeriesSelect) els.portSeriesSelect.addEventListener("change", syncPortSelectOptions);
 	els.ipInput.addEventListener("input", updateEditorMeta);
 	els.ipInput.addEventListener("scroll", syncEditorScroll);
 	els.clearBtn.addEventListener("click", () => {
@@ -1122,7 +1137,8 @@ function countryFromColo(colo) {
 }
 
 function buildTraceUrl(host, port) {
-	const portSuffix = port && port !== 443 ? `:${port}` : "";
+	const probePort = isHttpPort(port) ? 443 : port;
+	const portSuffix = probePort && probePort !== 443 ? `:${probePort}` : "";
 	return `https://${host}${portSuffix}/cdn-cgi/trace?_t=${Date.now()}`;
 }
 
@@ -2068,7 +2084,8 @@ function randomBigIntBelow(max) {
 
 function choosePort(preferredPort) {
 	if (preferredPort > 0) return preferredPort;
-	return TLS_PORTS[Math.floor(Math.random() * TLS_PORTS.length)];
+	const pool = portSeriesMode === "http" ? HTTP_PORTS : TLS_PORTS;
+	return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function validPortOrDefault(value, fallback) {
@@ -2079,6 +2096,7 @@ function validPortOrDefault(value, fallback) {
 
 function readSettings() {
 	[els.timeoutInput, els.threadsInput].forEach((input) => clampNumberInput(input));
+	if (els.portSeriesSelect) portSeriesMode = els.portSeriesSelect.value;
 	return {
 		timeout: Number(els.timeoutInput.value),
 		threads: Number(els.threadsInput.value),

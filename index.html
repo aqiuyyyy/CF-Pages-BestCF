@@ -84,9 +84,16 @@
 									step="1" value="16">
 							</div>
 							<div class="field">
+								<label for="portSeriesSelect">端口系列</label>
+								<select class="select" id="portSeriesSelect">
+									<option value="tls">443系</option>
+									<option value="http">80系</option>
+								</select>
+							</div>
+							<div class="field">
 								<div class="label-row">
 									<label for="portSelect">优选端口</label>
-									<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
+									<span class="help-tip" id="portHelpTip" tabindex="0" role="img" aria-label="端口说明"
 										data-tip="选择「随机端口」时，将在 443、2053、2083、2087、2096、8443 中随机选取。">!</span>
 								</div>
 								<select class="select" id="portSelect">
