@@ -1205,7 +1205,7 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
-		  <td><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.speedKb ? `${item.speedKb.toFixed(1)} KB/s` : "测速"}</button></td>
+		  <td><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.mbps ? `${item.mbps.toFixed(1)} Mbps` : "测速"}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
@@ -2225,7 +2225,8 @@ function renderLocalSpeedRows(rows) {
 	}
 	body.innerHTML = rows.map((row) => {
 		const safe = typeof escapeHtml === "function" ? escapeHtml(row.address) : row.address;
-		return `<tr><td>${safe}</td><td>${row.latency === null ? "--" : row.latency}</td><td>${row.speedKb === null ? "--" : row.speedKb.toFixed(1) + " KB/s"}</td><td>${row.status}</td></tr>`;
+		const speedText = row.mbps === null || row.mbps === undefined ? "--" : (row.method === "real" ? `${row.mbps.toFixed(1)} Mbps` : `${row.mbps.toFixed(1)} Mbps（相对）`);
+		return `<tr><td>${safe}</td><td>${row.latency === null ? "--" : row.latency}</td><td>${speedText}</td><td>${row.status}</td></tr>`;
 	}).join("");
 }
 
@@ -2242,6 +2243,29 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal) {
+	// Speedtest 方式：先尝试该域名的大文件下载（__down），成功则按实际字节算真实 Mbps。
+	// 任意优选域名没有统一的大文件，__down 不可用时回退到 trace 并发重复请求，算相对速度。
+	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
+	try {
+		const downStart = performance.now();
+		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=10000000&_t=${Date.now()}`, { cache: "no-store", signal });
+		if (downRes.ok && downRes.body) {
+			const reader = downRes.body.getReader();
+			let received = 0;
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				received += value.length;
+			}
+			if (received > 100000) {
+				const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
+				return { mbps: (received * 8) / secs / 1e6, method: "real" };
+			}
+		}
+	} catch (error) {
+		if (signal.aborted) throw error;
+		// __down 不可用时继续回退到 trace 方式
+	}
 	const deadline = performance.now() + seconds * 1000;
 	let totalBytes = 0;
 	const worker = async () => {
@@ -2252,14 +2276,13 @@ async function measureDomainDownload(parsed, seconds, signal) {
 				const text = await res.text();
 				totalBytes += text.length;
 			} catch (error) {
-				if (signal.aborted) break;
 				break;
 			}
 		}
 	};
-	// 8 路并发，避免串行请求只反映延迟、反映不出吞吐差异
 	await Promise.all(Array.from({ length: 8 }, () => worker()));
-	return totalBytes / seconds / 1024;
+	if (signal.aborted) throw new Error("已停止");
+	return { mbps: (totalBytes / seconds / 1024 / 1024) * 8, method: "relative", kbps: totalBytes / seconds / 1024 };
 }
 
 async function runLocalSpeedTest() {
@@ -2294,13 +2317,13 @@ async function runLocalSpeedTest() {
 			setLocalSpeedProgress((i / targets.length) * 100, `正在测 ${target.address}（${i + 1}/${targets.length}）…`);
 			try {
 				const latency = await measureDomainLatency(parsed, signal);
-				const speedKb = await measureDomainDownload(parsed, seconds, signal);
-				rows.push({ address: target.address, latency, speedKb, status: "完成" });
+				const dl = await measureDomainDownload(parsed, seconds, signal);
+				rows.push({ address: target.address, latency, mbps: dl.mbps, method: dl.method, status: dl.method === "real" ? "完成" : "完成（相对）" });
 			} catch (error) {
 				if (signal.aborted) break;
-				rows.push({ address: target.address, latency: null, speedKb: null, status: "失败" });
+				rows.push({ address: target.address, latency: null, mbps: null, method: null, status: "失败" });
 			}
-			rows.sort((a, b) => (b.speedKb === null ? -1 : b.speedKb) - (a.speedKb === null ? -1 : a.speedKb));
+			rows.sort((a, b) => (b.mbps === null || b.mbps === undefined ? -1 : b.mbps) - (a.mbps === null || a.mbps === undefined ? -1 : a.mbps));
 			renderLocalSpeedRows(rows);
 		}
 		setLocalSpeedProgress(signal.aborted ? 0 : 100, signal.aborted ? "已停止" : `测速完成，${rows.length} 个域名`);
@@ -2331,9 +2354,10 @@ async function runSingleDomainSpeedTest(id, btn) {
 	try {
 		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 5) || 5;
 		const controller = new AbortController();
-		const speedKb = await measureDomainDownload(parsed, seconds, controller.signal);
-		item.speedKb = speedKb;
-		btn.textContent = `${speedKb.toFixed(1)} KB/s`;
+		const dl = await measureDomainDownload(parsed, seconds, controller.signal);
+		item.mbps = dl.mbps;
+		item.method = dl.method;
+		btn.textContent = dl.method === "real" ? `${dl.mbps.toFixed(1)} Mbps` : `${dl.mbps.toFixed(1)} Mbps（相对）`;
 	} catch (error) {
 		btn.textContent = "失败，重测";
 	} finally {
