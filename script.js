@@ -2243,9 +2243,9 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal, onProgress) {
-	// 跟视频里 IP 版一样的短测逻辑：先尝试该域名的大文件下载（__down，25MB），
-	// 下完即停，按实际字节/实际耗时算真实 Mbps，不用等满固定时长；seconds 只作上限兜底。
-	// __down 不可用时回退到 trace 并发重复请求，同样按上限时间算，显示相对速度。
+	// 跟视频里 IP 版一样的逻辑：下载大小不限制，时间限制 2 秒（视频里约 0.5 秒起手 0.00，约 2.5 秒定格）。
+	// 先尝试该域名的大文件下载（__down，请求 1GB，2 秒内根本下不完，大小不起限制作用），
+	// 到 2 秒即停，按 2 秒内实际收到字节算真实 Mbps；__down 不可用时回退到 trace 并发请求，同样只跑 2 秒，显示相对速度。
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
 	const downController = new AbortController();
 	const onOuterAbort = () => downController.abort();
@@ -2253,7 +2253,7 @@ async function measureDomainDownload(parsed, seconds, signal, onProgress) {
 	const timer = window.setTimeout(() => downController.abort(), seconds * 1000);
 	try {
 		const downStart = performance.now();
-		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=25000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
+		const downRes = await fetch(`https://${parsed.host}${portSuffix}/__down?bytes=1000000000&_t=${Date.now()}`, { cache: "no-store", signal: downController.signal });
 		if (downRes.ok && downRes.body) {
 			const reader = downRes.body.getReader();
 			let received = 0;
@@ -2271,13 +2271,13 @@ async function measureDomainDownload(parsed, seconds, signal, onProgress) {
 				}
 			} catch (error) {
 				// 超时中断属于正常结束，按已收到字节算速度；其他错误则继续回退
-				if (downController.signal.aborted && received > 1000000) {
+				if (downController.signal.aborted && received > 0) {
 					const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
 					return { mbps: (received * 8) / secs / 1e6, method: "real" };
 				}
 				if (signal && signal.aborted) throw error;
 			}
-			if (received > 1000000) {
+			if (received > 0) {
 				const secs = Math.max(0.001, (performance.now() - downStart) / 1000);
 				return { mbps: (received * 8) / secs / 1e6, method: "real" };
 			}
@@ -2377,7 +2377,7 @@ async function runSingleDomainSpeedTest(id, btn) {
 	btn.classList.add("is-testing");
 	btn.textContent = "0.00Mbps";
 	try {
-		const seconds = 3;
+		const seconds = 2;
 		const controller = new AbortController();
 		const dl = await measureDomainDownload(parsed, seconds, controller.signal, (mbps) => { if (btn) btn.textContent = `${mbps.toFixed(2)}Mbps`; });
 		item.mbps = dl.mbps;
