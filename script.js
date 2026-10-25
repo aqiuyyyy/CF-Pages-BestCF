@@ -1205,7 +1205,7 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
-		  <td><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.mbps ? `${item.mbps.toFixed(1)} Mbps` : "测速"}</button></td>
+		  <td class="speed-cell"><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.mbps ? `${item.mbps.toFixed(1)} Mbps` : "测速"}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
