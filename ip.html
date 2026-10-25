@@ -2166,6 +2166,7 @@
 			</div>
 			<div class="network-warning-actions">
 				<button class="btn btn-local-warning" id="networkWarningLocalBtn" type="button">本地优选</button>
+				<button class="btn" id="networkWarningCloseBtn" type="button">关闭</button>
 				<button class="btn" id="networkWarningConfirmBtn" type="button">确定</button>
 			</div>
 		</div>
@@ -2372,7 +2373,8 @@
 			networkWarningDetails: $("#networkWarningDetails"),
 			networkWarningJson: $("#networkWarningJson"),
 			networkWarningConfirmBtn: $("#networkWarningConfirmBtn"),
-			networkWarningLocalBtn: $("#networkWarningLocalBtn")
+			networkWarningLocalBtn: $("#networkWarningLocalBtn"),
+			networkWarningCloseBtn: $("#networkWarningCloseBtn")
 		};
 
 		document.addEventListener("DOMContentLoaded", () => {
@@ -2489,6 +2491,7 @@
 			els.closeBestCFBtn.addEventListener("click", closeBestCFModule);
 			els.networkWarningConfirmBtn.addEventListener("click", confirmNetworkWarning);
 			els.networkWarningLocalBtn.addEventListener("click", openLocalOptimizeFromWarning);
+			if (els.networkWarningCloseBtn) els.networkWarningCloseBtn.addEventListener("click", closeNetworkWarning);
 			document.querySelectorAll("[data-sort]").forEach((button) => {
 				button.addEventListener("click", () => setResultSort(button.dataset.sort));
 			});
@@ -2775,6 +2778,10 @@
 			}
 
 			window.location.reload();
+		}
+
+		function closeNetworkWarning() {
+			els.networkWarningOverlay.classList.remove("is-visible");
 		}
 
 		function openLocalOptimizeFromWarning() {

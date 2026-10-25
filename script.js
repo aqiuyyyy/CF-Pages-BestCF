@@ -243,7 +243,8 @@ const els = {
 	networkWarningSummary: $("#networkWarningSummary"),
 	networkWarningDetails: $("#networkWarningDetails"),
 	networkWarningJson: $("#networkWarningJson"),
-	networkWarningLocalBtn: $("#networkWarningLocalBtn")
+	networkWarningLocalBtn: $("#networkWarningLocalBtn"),
+	networkWarningCloseBtn: $("#networkWarningCloseBtn")
 };
 
 // ==================== 开屏加载动画 ====================
@@ -371,6 +372,7 @@ function bindEvents() {
 	els.exportTxtBtn.addEventListener("click", exportSelectedResultsTxt);
 	els.exportCsvBtn.addEventListener("click", exportOptimizeResultsCsv);
 	els.networkWarningLocalBtn.addEventListener("click", openLocalOptimizeFromWarning);
+	if (els.networkWarningCloseBtn) els.networkWarningCloseBtn.addEventListener("click", closeNetworkWarning);
 	document.querySelectorAll("[data-sort]").forEach((button) => {
 		button.addEventListener("click", () => setResultSort(button.dataset.sort));
 	});
@@ -577,6 +579,10 @@ function renderNetworkWarningFailedRow(family, info) {
 		<span class="network-warning-ip">${escapeHtml(error)}</span>
 		<span class="network-warning-country">失败</span>
 	</div>`;
+}
+
+function closeNetworkWarning() {
+	els.networkWarningOverlay.classList.remove("is-visible");
 }
 
 function openLocalOptimizeFromWarning() {
