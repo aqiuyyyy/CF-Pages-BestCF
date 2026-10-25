@@ -363,7 +363,7 @@
 			gap: 12px;
 			min-height: 42px;
 			padding: 10px 12px;
-			cursor: pointer;
+			cursor: default;
 			list-style: none;
 			user-select: none;
 		}
@@ -372,9 +372,6 @@
 			display: none;
 		}
 
-		.advanced-settings-summary:hover {
-			background: #eef4ff;
-		}
 
 		.advanced-settings-summary:focus-visible {
 			outline: 2px solid rgba(37, 99, 235, 0.24);
@@ -419,13 +416,10 @@
 			transition: transform 0.15s ease;
 		}
 
-		.advanced-settings[open] .advanced-settings-summary {
+		.advanced-settings .advanced-settings-summary {
 			border-bottom: 1px solid var(--line);
 		}
 
-		.advanced-settings[open] .advanced-settings-chevron {
-			transform: rotate(180deg);
-		}
 
 		.advanced-settings-body {
 			padding: 12px;
@@ -1746,9 +1740,6 @@
 			background: var(--panel);
 		}
 
-		html.dark-mode .advanced-settings-summary:hover {
-			background: rgba(96, 165, 250, 0.12);
-		}
 
 		html.dark-mode .field label,
 		html.dark-mode .advanced-settings-title,
@@ -2000,16 +1991,13 @@
 							</button>
 						</div>
 
-						<details class="settings-block advanced-settings">
-							<summary class="advanced-settings-summary">
+						<div class="settings-block advanced-settings">
+							<div class="advanced-settings-summary">
 								<span class="advanced-settings-copy">
 									<span class="advanced-settings-title">高级设置</span>
 									<span class="advanced-settings-meta">待测数量、超时、并发、端口</span>
 								</span>
-								<svg class="advanced-settings-chevron" viewBox="0 0 24 24" aria-hidden="true">
-									<path d="M6 9l6 6 6-6"></path>
-								</svg>
-							</summary>
+							</div>
 							<div class="advanced-settings-body">
 								<div class="form-grid compact">
 									<div class="field">
@@ -2052,7 +2040,7 @@
 									</div>
 </div>
 							</div>
-						</details>
+						</div>
 
 						<div class="editor">
 							<div class="editor-bar">
