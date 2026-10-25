@@ -329,6 +329,12 @@ function bindEvents() {
 			return;
 		}
 
+		const speedBtn = event.target.closest("[data-row-speed]");
+		if (speedBtn) {
+			event.stopPropagation();
+			runSingleDomainSpeedTest(speedBtn.dataset.rowSpeed, speedBtn);
+			return;
+		}
 		const checkbox = event.target.closest("[data-select-id]");
 		if (checkbox) {
 			setResultSelected(checkbox.dataset.selectId, checkbox.checked);
@@ -1182,7 +1188,7 @@ function renderResults() {
 	syncOpenResultFilterMenu();
 	syncSelectionWithResults();
 	if (!state.results.length || !rows.length) {
-		els.resultBody.innerHTML = `<tr><td class="empty" colspan="6">${state.results.length ? "筛选后暂无结果" : "暂无结果"}</td></tr>`;
+		els.resultBody.innerHTML = `<tr><td class="empty" colspan="7">${state.results.length ? "筛选后暂无结果" : "暂无结果"}</td></tr>`;
 		updateSelectionState();
 		updateActionAvailability();
 		return;
@@ -1199,6 +1205,7 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
+		  <td><button class="btn secondary row-speed-btn" type="button" data-row-speed="${escapeHtml(id)}">${item.speedKb ? `${item.speedKb.toFixed(1)} KB/s` : "测速"}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
@@ -2309,3 +2316,28 @@ document.addEventListener("DOMContentLoaded", () => {
 	const btn = document.getElementById("localSpeedBtn");
 	if (btn) btn.addEventListener("click", runLocalSpeedTest);
 });
+
+// 优选结果每行直接测速：点延迟后面的「测速」按钮，只测这一行对应的域名，
+// 测完按钮本身直接显示相对下载速度，再点可重测。
+async function runSingleDomainSpeedTest(id, btn) {
+	if (!btn || btn.dataset.testing === "1") return;
+	const item = typeof state !== "undefined" && state.results ? state.results.find((entry) => String(entry.id) === String(id)) : null;
+	if (!item) return;
+	const parsed = parseProbeTarget(item.address);
+	if (!parsed) return;
+	btn.dataset.testing = "1";
+	btn.disabled = true;
+	btn.textContent = "测速中…";
+	try {
+		const seconds = Number(document.getElementById("localSpeedSizeSelect") ? document.getElementById("localSpeedSizeSelect").value : 5) || 5;
+		const controller = new AbortController();
+		const speedKb = await measureDomainDownload(parsed, seconds, controller.signal);
+		item.speedKb = speedKb;
+		btn.textContent = `${speedKb.toFixed(1)} KB/s`;
+	} catch (error) {
+		btn.textContent = "失败，重测";
+	} finally {
+		delete btn.dataset.testing;
+		btn.disabled = false;
+	}
+}
