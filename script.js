@@ -97,6 +97,8 @@ if (window.matchMedia) {
 	});
 }
 const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
+function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
 // CIDR/IP区间随机采样的候选总量上限（与原“待测IP数”默认值一致）
 const CANDIDATE_LIMIT = 512;
 const BEST_HOSTS = [
@@ -1128,6 +1130,9 @@ function countryFromColo(colo) {
 }
 
 function buildTraceUrl(host, port) {
+	// 80 系是 HTTP 端口，https 页面对它发 https 请求会握手失败（已实测 https://域名:8080/2052/2082 均失败，http 才通）。
+	// 延迟测的是同一边缘，80 系候选仍走 443 测 trace，结果里保留用户选的 80 系端口作节点端口。
+	if (isHttpPort(port)) return `https://${host}/cdn-cgi/trace?_t=${Date.now()}`;
 	const portSuffix = port && port !== 443 ? `:${port}` : "";
 	return `https://${host}${portSuffix}/cdn-cgi/trace?_t=${Date.now()}`;
 }
