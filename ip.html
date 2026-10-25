@@ -469,10 +469,10 @@
 
 		.help-tip::after {
 			position: absolute;
-			right: 50%;
+			left: 0;
 			bottom: calc(100% + 9px);
 			width: max-content;
-			max-width: min(300px, 72vw);
+			max-width: min(320px, calc(100vw - 24px));
 			padding: 8px 10px;
 			border: 1px solid #d8c073;
 			border-radius: var(--radius);
@@ -485,7 +485,7 @@
 			line-height: 1.45;
 			opacity: 0;
 			pointer-events: none;
-			transform: translate(50%, 4px);
+			transform: translateY(4px);
 			transition: opacity 0.15s ease, transform 0.15s ease;
 			z-index: 4;
 			white-space: normal;
@@ -493,7 +493,7 @@
 
 		.help-tip::before {
 			position: absolute;
-			right: 50%;
+			left: 4px;
 			bottom: calc(100% + 4px);
 			width: 9px;
 			height: 9px;
@@ -503,7 +503,7 @@
 			content: "";
 			opacity: 0;
 			pointer-events: none;
-			transform: translate(50%, 4px) rotate(45deg);
+			transform: translateY(4px) rotate(45deg);
 			transition: opacity 0.15s ease, transform 0.15s ease;
 			z-index: 5;
 		}
@@ -513,12 +513,12 @@
 		.help-tip:focus::after,
 		.help-tip:focus::before {
 			opacity: 1;
-			transform: translate(50%, 0) rotate(0deg);
+			transform: translateY(0) rotate(0deg);
 		}
 
 		.help-tip:hover::before,
 		.help-tip:focus::before {
-			transform: translate(50%, 0) rotate(45deg);
+			transform: rotate(45deg);
 		}
 
 		.control-row {
@@ -2038,7 +2038,7 @@
 										<div class="label-row">
 											<label for="portSelect">优选端口</label>
 											<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
-												data-tip="上面选 443系，随机端口就随机 443 系端口；选 80系，随机端口就随机 80 系端口；80 系用 443 测同一边缘，结果端口仍为 80 系。">!</span>
+												id="portHelpTip" data-tip="选择「随机端口」时，将在 443、2053、2083、2087、2096、8443 中随机选取。">!</span>
 										</div>
 										<select class="select" id="portSelect">
 											<option value="0">随机端口</option>
@@ -2218,6 +2218,7 @@
 			const current = Number(els.portSelect.value);
 			els.portSelect.innerHTML = '<option value="0">随机端口</option>' + pool.map((port) => `<option value="${port}">${port}</option>`).join("");
 			els.portSelect.value = pool.includes(current) ? String(current) : "0";
+			if (els.portHelpTip) els.portHelpTip.setAttribute("data-tip", `选择「随机端口」时，将在 ${pool.join("、")} 中随机选取。` + (portSeriesMode === "http" ? "80 系用 443 测同一边缘，结果端口仍为 80 系。" : ""));
 		}
 		const BEST_HOSTS = [
 			//"bestcf.cmliussss.hidns.vip",
@@ -2359,6 +2360,7 @@
 			threadsInput: $("#threadsInput"),
 			portSelect: $("#portSelect"),
 			portSeriesSelect: $("#portSeriesSelect"),
+			portHelpTip: $("#portHelpTip"),
 			latencyBtn: $("#latencyBtn"),
 			latencyStatus: $("#latencyStatus"),
 			latencyProgress: $("#latencyProgress"),
