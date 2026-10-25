@@ -2192,10 +2192,11 @@ function friendlyError(error) {
 	return error.message || "操作失败";
 }
 
-// ==================== 本地测速 ====================
-// 在本机浏览器直接测速：延迟走 speed.cloudflare.com/cdn-cgi/trace（3 次取最小），
-// 下载走 speed.cloudflare.com/__down，上传走 speed.cloudflare.com/__up。
-// 若测速端点本身不可达（被墙/被挡），会直接提示，不会误报为网络慢。
+// ==================== 优选域名测速 ====================
+// 直接对优选结果里的域名测速：延迟 3 次取最小；下载用该域名自己的
+// /cdn-cgi/trace 并发重复请求，在固定时长内计总字节，算相对下载速度。
+// 注意：浏览器里对任意优选域名没有统一大文件可下，相对速度只用于域名间排序，
+// 不是绝对带宽。复用本页已有的 parseProbeTarget / buildTraceUrl / selectedResults。
 let localSpeedController = null;
 let localSpeedRunning = false;
 
@@ -2208,43 +2209,50 @@ function setLocalSpeedProgress(percent, status) {
 	if (tag) tag.textContent = status;
 }
 
-async function measureLocalLatency(signal) {
+function renderLocalSpeedRows(rows) {
+	const body = document.getElementById("localSpeedBody");
+	if (!body) return;
+	if (!rows.length) {
+		body.innerHTML = '<tr><td class="empty" colspan="4">暂无结果</td></tr>';
+		return;
+	}
+	body.innerHTML = rows.map((row) => {
+		const safe = typeof escapeHtml === "function" ? escapeHtml(row.address) : row.address;
+		return `<tr><td>${safe}</td><td>${row.latency === null ? "--" : row.latency}</td><td>${row.speedKb === null ? "--" : row.speedKb.toFixed(1) + " KB/s"}</td><td>${row.status}</td></tr>`;
+	}).join("");
+}
+
+async function measureDomainLatency(parsed, signal) {
 	let best = Infinity;
 	for (let i = 0; i < 3; i++) {
 		const start = performance.now();
-		const res = await fetch(`https://speed.cloudflare.com/cdn-cgi/trace?_t=${Date.now()}`, { cache: "no-store", signal });
+		const res = await fetch(buildTraceUrl(parsed.host, parsed.port), { cache: "no-store", signal });
+		if (!res.ok) throw new Error(`trace HTTP ${res.status}`);
 		await res.text();
 		best = Math.min(best, performance.now() - start);
 	}
-	return best;
+	return Math.max(1, Math.round(best));
 }
 
-async function measureLocalDownload(bytes, signal, onProgress) {
-	const start = performance.now();
-	const res = await fetch(`https://speed.cloudflare.com/__down?bytes=${bytes}`, { cache: "no-store", signal });
-	if (!res.ok || !res.body) throw new Error(`下载测试 HTTP ${res.status}`);
-	const reader = res.body.getReader();
-	let received = 0;
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		received += value.length;
-		onProgress(received / bytes);
-	}
-	const seconds = (performance.now() - start) / 1000;
-	return (received * 8) / seconds / 1e6;
-}
-
-async function measureLocalUpload(signal) {
-	const bytes = 5 * 1024 * 1024;
-	const data = new Uint8Array(bytes);
-	crypto.getRandomValues(data);
-	const start = performance.now();
-	const res = await fetch("https://speed.cloudflare.com/__up", { method: "POST", body: data, cache: "no-store", signal });
-	if (!res.ok) throw new Error(`上传测试 HTTP ${res.status}`);
-	await res.text();
-	const seconds = (performance.now() - start) / 1000;
-	return (bytes * 8) / seconds / 1e6;
+async function measureDomainDownload(parsed, seconds, signal) {
+	const deadline = performance.now() + seconds * 1000;
+	let totalBytes = 0;
+	const worker = async () => {
+		while (performance.now() < deadline && !signal.aborted) {
+			try {
+				const res = await fetch(buildTraceUrl(parsed.host, parsed.port), { cache: "no-store", signal });
+				if (!res.ok) break;
+				const text = await res.text();
+				totalBytes += text.length;
+			} catch (error) {
+				if (signal.aborted) break;
+				break;
+			}
+		}
+	};
+	// 8 路并发，避免串行请求只反映延迟、反映不出吞吐差异
+	await Promise.all(Array.from({ length: 8 }, () => worker()));
+	return totalBytes / seconds / 1024;
 }
 
 async function runLocalSpeedTest() {
@@ -2254,34 +2262,45 @@ async function runLocalSpeedTest() {
 		if (localSpeedController) localSpeedController.abort();
 		return;
 	}
+	let targets = [];
+	try {
+		const selected = typeof selectedResults === "function" ? selectedResults() : [];
+		targets = selected.length ? selected : (typeof state !== "undefined" && state.results ? [...state.results].sort((a, b) => a.latency - b.latency).slice(0, 10) : []);
+	} catch (error) { targets = []; }
+	if (!targets.length) {
+		setLocalSpeedProgress(0, "先跑一次优选延迟，得到优选结果后再测速");
+		return;
+	}
 	localSpeedRunning = true;
 	localSpeedController = new AbortController();
 	const signal = localSpeedController.signal;
 	btn.textContent = "停止测速";
 	btn.classList.add("danger");
+	const seconds = Number(document.getElementById("localSpeedSizeSelect").value) || 5;
+	const rows = [];
 	try {
-		setLocalSpeedProgress(5, "正在测延迟…");
-		const latency = await measureLocalLatency(signal);
-		document.getElementById("localSpeedLatency").textContent = latency.toFixed(0);
-		setLocalSpeedProgress(35, "正在测下载…");
-		const size = Number(document.getElementById("localSpeedSizeSelect").value) || 100000000;
-		const download = await measureLocalDownload(size, signal, (p) => setLocalSpeedProgress(35 + p * 40, "正在测下载…"));
-		document.getElementById("localSpeedDownload").textContent = download.toFixed(1);
-		setLocalSpeedProgress(80, "正在测上传…");
-		const upload = await measureLocalUpload(signal);
-		document.getElementById("localSpeedUpload").textContent = upload.toFixed(1);
-		setLocalSpeedProgress(100, "测速完成");
-	} catch (error) {
-		if (error && error.name === "AbortError") {
-			setLocalSpeedProgress(0, "已停止");
-		} else {
-			console.error("[本地测速] 失败:", error);
-			setLocalSpeedProgress(0, "测速端点不可达，请换网络或代理后再试");
+		for (let i = 0; i < targets.length; i++) {
+			if (signal.aborted) break;
+			const target = targets[i];
+			const parsed = parseProbeTarget(target.address);
+			if (!parsed) { rows.push({ address: target.address, latency: null, speedKb: null, status: "地址无效" }); continue; }
+			setLocalSpeedProgress((i / targets.length) * 100, `正在测 ${target.address}（${i + 1}/${targets.length}）…`);
+			try {
+				const latency = await measureDomainLatency(parsed, signal);
+				const speedKb = await measureDomainDownload(parsed, seconds, signal);
+				rows.push({ address: target.address, latency, speedKb, status: "完成" });
+			} catch (error) {
+				if (signal.aborted) break;
+				rows.push({ address: target.address, latency: null, speedKb: null, status: "失败" });
+			}
+			rows.sort((a, b) => (b.speedKb === null ? -1 : b.speedKb) - (a.speedKb === null ? -1 : a.speedKb));
+			renderLocalSpeedRows(rows);
 		}
+		setLocalSpeedProgress(signal.aborted ? 0 : 100, signal.aborted ? "已停止" : `测速完成，${rows.length} 个域名`);
 	} finally {
 		localSpeedRunning = false;
 		localSpeedController = null;
-		btn.textContent = "开始本地测速";
+		btn.textContent = "开始优选域名测速";
 		btn.classList.remove("danger");
 	}
 }
