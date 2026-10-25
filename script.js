@@ -1205,7 +1205,7 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
-		  <td class="speed-cell"><button class="btn secondary row-speed-btn${item.mbps ? " is-measured" : ""}" type="button" data-row-speed="${escapeHtml(id)}" title="点击重测">${item.mbps ? `${item.mbps.toFixed(2)}Mbps` : "≋ 测速"}</button></td>
+		  <td class="speed-cell"><button class="link-btn speed-test-btn row-speed-btn${item.mbps ? " is-measured" : ""}" type="button" data-row-speed="${escapeHtml(id)}" title="点击重测">${item.mbps ? `<strong>${item.mbps.toFixed(2)}Mbps</strong>` : `${svgRunIcon()}<span>测速</span>`}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
@@ -2243,9 +2243,9 @@ async function measureDomainLatency(parsed, signal) {
 }
 
 async function measureDomainDownload(parsed, seconds, signal, onProgress) {
-	// 跟视频里 IP 版一样的逻辑：下载大小不限制，时间限制 2 秒（视频里约 0.5 秒起手 0.00，约 2.5 秒定格）。
-	// 先尝试该域名的大文件下载（__down，请求 1GB，2 秒内根本下不完，大小不起限制作用），
-	// 到 2 秒即停，按 2 秒内实际收到字节算真实 Mbps；__down 不可用时回退到 trace 并发请求，同样只跑 2 秒，显示相对速度。
+	// 跟他（EDT-Pages admin 内嵌 BestCF IP 版，testDownloadSpeed）一样的逻辑：时间上限 10 秒（maxDuration=10000），
+	// 下载大小不限制：请求 1GB，10 秒内下不完，大小不起限制作用；到 10 秒即停，按实际收到字节/实际耗时算 Mbps。
+	// 他原版是 20MB/10 秒先到先停，这里按用户要求把大小放开、只留 10 秒时间上限；__down 不可用时回退 trace，同样只跑 10 秒，显示相对速度。
 	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
 	const downController = new AbortController();
 	const onOuterAbort = () => downController.abort();
@@ -2264,7 +2264,7 @@ async function measureDomainDownload(parsed, seconds, signal, onProgress) {
 					if (done) break;
 					received += value.length;
 					const now = performance.now();
-					if (typeof onProgress === "function" && now - lastProgress > 400 && received > 0) {
+					if (typeof onProgress === "function" && now - lastProgress > 250 && received > 0) {
 						lastProgress = now;
 						onProgress((received * 8) / Math.max(0.001, (now - downStart) / 1000) / 1e6);
 					}
@@ -2363,6 +2363,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (btn) btn.addEventListener("click", runLocalSpeedTest);
 });
 
+function svgRunIcon() {
+	return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="16.5" cy="5.5" r="1.5"></circle><path d="M10 8.5 13 9l1.5 2.5 3 1"></path><path d="M7 20l2.2-4.7 2.6-1.1 1.4 2.3 3 1"></path><path d="M6 11l3-2.2 2.8.8 2 2"></path><path d="M5 19h3.5"></path></svg>';
+}
+
 // 优选结果每行直接测速：点延迟后面的「测速」按钮，只测这一行对应的域名，
 // 测完按钮本身直接显示相对下载速度，再点可重测。
 async function runSingleDomainSpeedTest(id, btn) {
@@ -2377,17 +2381,17 @@ async function runSingleDomainSpeedTest(id, btn) {
 	btn.classList.add("is-testing");
 	btn.textContent = "0.00Mbps";
 	try {
-		const seconds = 2;
+		const seconds = 10;
 		const controller = new AbortController();
 		const dl = await measureDomainDownload(parsed, seconds, controller.signal, (mbps) => { if (btn) btn.textContent = `${mbps.toFixed(2)}Mbps`; });
 		item.mbps = dl.mbps;
 		item.method = dl.method;
-		btn.textContent = dl.method === "real" ? `${dl.mbps.toFixed(2)}Mbps` : `${dl.mbps.toFixed(2)}Mbps（相对）`;
+		btn.innerHTML = dl.method === "real" ? `<strong>${dl.mbps.toFixed(2)}Mbps</strong>` : `<strong>${dl.mbps.toFixed(2)}Mbps</strong>（相对）`;
 		btn.classList.remove("is-testing");
 		btn.classList.add("is-measured");
 	} catch (error) {
 		btn.classList.remove("is-testing");
-		btn.textContent = "失败，重测";
+		btn.textContent = "失败";
 	} finally {
 		delete btn.dataset.testing;
 		btn.disabled = false;

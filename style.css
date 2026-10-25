@@ -2178,3 +2178,7 @@ html.dark-mode .row-speed-btn:hover{color:#93c5fd}
 html.dark-mode .row-speed-btn.is-testing{color:#9ca3af}
 .row-speed-btn.is-measured{text-decoration:underline}
 html.dark-mode .row-speed-btn.is-measured{text-decoration:underline}
+
+/* 跟他一样的测速按钮 UI：link 式、跑步图标 14px、测中灰字、测完粗体蓝字带下划线 */
+.speed-test-btn{display:inline-flex;align-items:center;gap:4px}
+.speed-test-btn .icon{width:14px;height:14px}
