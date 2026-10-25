@@ -2143,3 +2143,13 @@ html.dark-mode .local-tools-error {
 @media (max-width:640px){.local-speed-grid{grid-template-columns:1fr}}
 /* 优选结果每行测速按钮 */
 .row-speed-btn{padding:6px 10px;font-size:13px;white-space:nowrap}
+
+/* 优选结果测速列：手机上不挤压、不换行、不被裁切 */
+.result-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.result-wrap table{min-width:620px}
+.speed-cell{white-space:nowrap;min-width:92px;text-align:center}
+.row-speed-btn{padding:6px 8px;font-size:12px;line-height:1.3;white-space:nowrap;min-width:78px}
+@media (max-width:640px){
+	.result-wrap table{min-width:600px}
+	.row-speed-btn{font-size:12px;padding:6px 8px}
+}
