@@ -2264,7 +2264,7 @@ async function runLocalSpeedTest() {
 		const latency = await measureLocalLatency(signal);
 		document.getElementById("localSpeedLatency").textContent = latency.toFixed(0);
 		setLocalSpeedProgress(35, "正在测下载…");
-		const size = Number(document.getElementById("localSpeedSizeSelect").value) || 25000000;
+		const size = Number(document.getElementById("localSpeedSizeSelect").value) || 100000000;
 		const download = await measureLocalDownload(size, signal, (p) => setLocalSpeedProgress(35 + p * 40, "正在测下载…"));
 		document.getElementById("localSpeedDownload").textContent = download.toFixed(1);
 		setLocalSpeedProgress(80, "正在测上传…");
