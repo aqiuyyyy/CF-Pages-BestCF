@@ -2141,3 +2141,5 @@ html.dark-mode .local-tools-error {
 .local-speed-kind{font-size:13px;opacity:.7;margin-bottom:6px}
 .local-speed-item strong{font-size:22px;margin-right:4px}
 @media (max-width:640px){.local-speed-grid{grid-template-columns:1fr}}
+/* 优选结果每行测速按钮 */
+.row-speed-btn{padding:6px 10px;font-size:13px;white-space:nowrap}
