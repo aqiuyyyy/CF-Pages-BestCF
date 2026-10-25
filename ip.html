@@ -2218,7 +2218,7 @@
 			const current = Number(els.portSelect.value);
 			els.portSelect.innerHTML = '<option value="0">随机端口</option>' + pool.map((port) => `<option value="${port}">${port}</option>`).join("");
 			els.portSelect.value = pool.includes(current) ? String(current) : "0";
-			if (els.portHelpTip) els.portHelpTip.setAttribute("data-tip", `选择「随机端口」时，将在 ${pool.join("、")} 中随机选取。` + (portSeriesMode === "http" ? "80 系用 443 测同一边缘，结果端口仍为 80 系。" : ""));
+			if (els.portHelpTip) els.portHelpTip.setAttribute("data-tip", `选择「随机端口」时，将在 ${pool.join("、")} 中随机选取。`);
 		}
 		const BEST_HOSTS = [
 			//"bestcf.cmliussss.hidns.vip",
