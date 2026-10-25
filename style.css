@@ -1736,11 +1736,11 @@ td.ip-cell {
 
 html.dark-mode {
 	color-scheme: dark;
-	--bg: #0a0f1e;
+	--bg: #0f172a;
 	--panel: #111827;
-	--panel-soft: #1b2538;
+	--panel-soft: #182235;
 	--text: #e5e7eb;
-	--muted: #94a3b8;
+	--muted: #9ca3af;
 	--line: #263247;
 	--line-strong: #3a475c;
 	--blue: #60a5fa;
@@ -2134,51 +2134,3 @@ html.dark-mode .local-tools-error {
 		width: 100%;
 	}
 }
-
-/* 本地测速 */
-.local-speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
-.local-speed-item{border:1px solid var(--border, #e5e7eb);border-radius:12px;padding:14px 16px}
-.local-speed-kind{font-size:13px;opacity:.7;margin-bottom:6px}
-.local-speed-item strong{font-size:22px;margin-right:4px}
-@media (max-width:640px){.local-speed-grid{grid-template-columns:1fr}}
-/* 优选结果每行测速按钮 */
-.row-speed-btn{padding:6px 10px;font-size:13px;white-space:nowrap}
-
-/* 优选结果测速列：手机上不挤压、不换行、不被裁切 */
-.result-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.result-wrap table{min-width:620px}
-.speed-cell{white-space:nowrap;min-width:92px;text-align:center}
-.row-speed-btn{padding:6px 8px;font-size:12px;line-height:1.3;white-space:nowrap;min-width:78px}
-@media (max-width:640px){
-	.result-wrap table{min-width:600px}
-	.row-speed-btn{font-size:12px;padding:6px 8px}
-}
-
-/* 截图样式：进度条与优选结果速度列 */
-html.dark-mode .progress-meta{font-size:15px;color:var(--text)}
-html.dark-mode .progress-meta .tiny{font-size:15px;color:var(--text)}
-html.dark-mode .progress-line{height:10px;background:#1f2937}
-html.dark-mode .progress-bar{background:linear-gradient(90deg,#2563eb,#10b981)}
-.panel-head .panel-title{font-size:18px;font-weight:800}
-#resultCount{border-radius:999px;padding:6px 14px;font-size:13px}
-html.dark-mode #resultCount{background:#1f2937;color:#e5e7eb;border-color:transparent}
-html.dark-mode th{background:#1b2538;color:#cbd5e1}
-.row-speed-btn.is-measured{font-weight:800;color:#2563eb;font-size:14px}
-html.dark-mode .row-speed-btn{background:transparent;border:0;color:#60a5fa;font-weight:600;padding:6px 4px;min-width:0}
-html.dark-mode .row-speed-btn.is-measured{color:#60a5fa;font-weight:800;font-size:14px}
-html.dark-mode .row-speed-btn:hover{color:#93c5fd}
-.speed-cell{min-width:120px}
-@media (max-width:640px){
-  .result-wrap table{min-width:640px}
-  .speed-cell{min-width:120px}
-}
-
-/* 视频里测速逻辑的样式：测中灰字，测完粗体蓝字带下划线 */
-.row-speed-btn.is-testing{color:#9ca3af;font-weight:400;text-decoration:none}
-html.dark-mode .row-speed-btn.is-testing{color:#9ca3af}
-.row-speed-btn.is-measured{text-decoration:underline}
-html.dark-mode .row-speed-btn.is-measured{text-decoration:underline}
-
-/* 跟他一样的测速按钮 UI：link 式、跑步图标 14px、测中灰字、测完粗体蓝字带下划线 */
-.speed-test-btn{display:inline-flex;align-items:center;gap:4px}
-.speed-test-btn .icon{width:14px;height:14px}

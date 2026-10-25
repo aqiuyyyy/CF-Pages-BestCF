@@ -4,9 +4,9 @@ let themeMode = readCachedThemeMode();
 function readCachedThemeMode() {
 	try {
 		const mode = window.localStorage.getItem(THEME_MODE_CACHE_KEY);
-		return mode === "light" || mode === "dark" ? mode : "dark";
+		return mode === "light" || mode === "dark" ? mode : "auto";
 	} catch (error) {
-		return "dark";
+		return "auto";
 	}
 }
 
@@ -97,8 +97,6 @@ if (window.matchMedia) {
 	});
 }
 const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
-const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
-function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
 // CIDR/IP区间随机采样的候选总量上限（与原“待测IP数”默认值一致）
 const CANDIDATE_LIMIT = 512;
 const BEST_HOSTS = [
@@ -331,12 +329,6 @@ function bindEvents() {
 			return;
 		}
 
-		const speedBtn = event.target.closest("[data-row-speed]");
-		if (speedBtn) {
-			event.stopPropagation();
-			runSingleDomainSpeedTest(speedBtn.dataset.rowSpeed, speedBtn);
-			return;
-		}
 		const checkbox = event.target.closest("[data-select-id]");
 		if (checkbox) {
 			setResultSelected(checkbox.dataset.selectId, checkbox.checked);
@@ -1130,9 +1122,6 @@ function countryFromColo(colo) {
 }
 
 function buildTraceUrl(host, port) {
-	// 80 系是 HTTP 端口，https 页面对它发 https 请求会握手失败（已实测 https://域名:8080/2052/2082 均失败，http 才通）。
-	// 延迟测的是同一边缘，80 系候选仍走 443 测 trace，结果里保留用户选的 80 系端口作节点端口。
-	if (isHttpPort(port)) return `https://${host}/cdn-cgi/trace?_t=${Date.now()}`;
 	const portSuffix = port && port !== 443 ? `:${port}` : "";
 	return `https://${host}${portSuffix}/cdn-cgi/trace?_t=${Date.now()}`;
 }
@@ -1193,7 +1182,7 @@ function renderResults() {
 	syncOpenResultFilterMenu();
 	syncSelectionWithResults();
 	if (!state.results.length || !rows.length) {
-		els.resultBody.innerHTML = `<tr><td class="empty" colspan="7">${state.results.length ? "筛选后暂无结果" : "暂无结果"}</td></tr>`;
+		els.resultBody.innerHTML = `<tr><td class="empty" colspan="6">${state.results.length ? "筛选后暂无结果" : "暂无结果"}</td></tr>`;
 		updateSelectionState();
 		updateActionAvailability();
 		return;
@@ -1210,7 +1199,6 @@ function renderResults() {
 		  <td>${renderCountryCell(item.country)}</td>
 		  <td>${escapeHtml(item.colo || "未知")}</td>
 		  <td>${item.latency}ms</td>
-		  <td class="speed-cell"><button class="link-btn speed-test-btn row-speed-btn${item.mbps ? " is-measured" : ""}" type="button" data-row-speed="${escapeHtml(id)}" title="点击重测">${item.mbps ? `<strong>${item.mbps.toFixed(2)}Mbps</strong>` : `${svgRunIcon()}<span>测速</span>`}</button></td>
 		</tr>`;
 	}).join("");
 	updateSelectionState();
@@ -2202,200 +2190,4 @@ function friendlyError(error) {
 	if (!error) return "操作失败";
 	if (error.name === "AbortError") return "请求超时或已停止";
 	return error.message || "操作失败";
-}
-
-// ==================== 优选域名测速 ====================
-// 直接对优选结果里的域名测速：延迟 3 次取最小；下载用该域名自己的
-// /cdn-cgi/trace 并发重复请求，在固定时长内计总字节，算相对下载速度。
-// 注意：浏览器里对任意优选域名没有统一大文件可下，相对速度只用于域名间排序，
-// 不是绝对带宽。复用本页已有的 parseProbeTarget / buildTraceUrl / selectedResults。
-let localSpeedController = null;
-let localSpeedRunning = false;
-
-function setLocalSpeedProgress(percent, status) {
-	const bar = document.getElementById("localSpeedProgress");
-	const statusEl = document.getElementById("localSpeedStatus");
-	const tag = document.getElementById("localSpeedTag");
-	if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
-	if (statusEl) statusEl.textContent = status;
-	if (tag) tag.textContent = status;
-}
-
-function renderLocalSpeedRows(rows) {
-	const body = document.getElementById("localSpeedBody");
-	if (!body) return;
-	if (!rows.length) {
-		body.innerHTML = '<tr><td class="empty" colspan="4">暂无结果</td></tr>';
-		return;
-	}
-	body.innerHTML = rows.map((row) => {
-		const safe = typeof escapeHtml === "function" ? escapeHtml(row.address) : row.address;
-		const speedText = row.mbps === null || row.mbps === undefined ? "--" : (row.method === "real" ? `${row.mbps.toFixed(1)} Mbps` : `${row.mbps.toFixed(1)} Mbps（相对）`);
-		return `<tr><td>${safe}</td><td>${row.latency === null ? "--" : row.latency}</td><td>${speedText}</td><td>${row.status}</td></tr>`;
-	}).join("");
-}
-
-async function measureDomainLatency(parsed, signal) {
-	let best = Infinity;
-	for (let i = 0; i < 3; i++) {
-		const start = performance.now();
-		const res = await fetch(buildTraceUrl(parsed.host, parsed.port), { cache: "no-store", signal });
-		if (!res.ok) throw new Error(`trace HTTP ${res.status}`);
-		await res.text();
-		best = Math.min(best, performance.now() - start);
-	}
-	return Math.max(1, Math.round(best));
-}
-
-async function measureDomainDownload(parsed, seconds, signal, onProgress) {
-	// 抄他的 testDownloadSpeed（EDT-Pages admin 内嵌 BestCF IP 版），不改：__down?bytes=20000000，maxDuration=10000。
-	const portSuffix = parsed.port && parsed.port !== 443 ? `:${parsed.port}` : "";
-	const url = `https://${parsed.host}${portSuffix}/__down?bytes=20000000&_t=${Date.now()}`;
-	const controller = new AbortController();
-	const onOuterAbort = () => controller.abort();
-	if (signal) signal.addEventListener("abort", onOuterAbort, { once: true });
-	const maxDuration = seconds * 1000;
-	let timedOut = false;
-	let totalBytes = 0;
-	let started = 0;
-	let ticker = null;
-	const timeout = window.setTimeout(() => {
-		timedOut = true;
-		controller.abort();
-	}, maxDuration);
-	const finishSpeed = () => {
-		const elapsed = Math.max(1, performance.now() - started);
-		return totalBytes > 0 ? (totalBytes * 8) / (elapsed / 1000) / 1000000 : 0;
-	};
-	const reportProgress = () => {
-		if (typeof onProgress === "function") onProgress(finishSpeed());
-	};
-	try {
-		started = performance.now();
-		if (typeof onProgress === "function") onProgress(0);
-		ticker = window.setInterval(reportProgress, 250);
-		const response = await fetch(url, { method: "GET", cache: "no-store", signal: controller.signal });
-		if (!response.ok) throw new Error("下载失败");
-		if (!response.body || !response.body.getReader) {
-			const buffer = await response.arrayBuffer();
-			totalBytes = buffer.byteLength;
-			if (typeof onProgress === "function") onProgress(finishSpeed());
-			return { mbps: finishSpeed(), method: "real" };
-		}
-		const reader = response.body.getReader();
-		while (true) {
-			if (performance.now() - started >= maxDuration) {
-				timedOut = true;
-				controller.abort();
-				break;
-			}
-			const { done, value } = await reader.read();
-			if (done) break;
-			const size = value.byteLength || value.length || 0;
-			totalBytes += size;
-			reportProgress();
-		}
-		if (typeof onProgress === "function") onProgress(finishSpeed());
-		return { mbps: finishSpeed(), method: "real" };
-	} catch (error) {
-		if (timedOut && totalBytes > 0) {
-			if (typeof onProgress === "function") onProgress(finishSpeed());
-			return { mbps: finishSpeed(), method: "real" };
-		}
-		throw error;
-	} finally {
-		window.clearTimeout(timeout);
-		if (ticker) window.clearInterval(ticker);
-		if (signal) signal.removeEventListener("abort", onOuterAbort);
-	}
-}
-
-async function runLocalSpeedTest() {
-	const btn = document.getElementById("localSpeedBtn");
-	if (!btn) return;
-	if (localSpeedRunning) {
-		if (localSpeedController) localSpeedController.abort();
-		return;
-	}
-	let targets = [];
-	try {
-		const selected = typeof selectedResults === "function" ? selectedResults() : [];
-		targets = selected.length ? selected : (typeof state !== "undefined" && state.results ? [...state.results].sort((a, b) => a.latency - b.latency).slice(0, 10) : []);
-	} catch (error) { targets = []; }
-	if (!targets.length) {
-		setLocalSpeedProgress(0, "先跑一次优选延迟，得到优选结果后再测速");
-		return;
-	}
-	localSpeedRunning = true;
-	localSpeedController = new AbortController();
-	const signal = localSpeedController.signal;
-	btn.textContent = "停止测速";
-	btn.classList.add("danger");
-	const seconds = Number(document.getElementById("localSpeedSizeSelect").value) || 10;
-	const rows = [];
-	try {
-		for (let i = 0; i < targets.length; i++) {
-			if (signal.aborted) break;
-			const target = targets[i];
-			const parsed = parseProbeTarget(target.address);
-			if (!parsed) { rows.push({ address: target.address, latency: null, speedKb: null, status: "地址无效" }); continue; }
-			setLocalSpeedProgress((i / targets.length) * 100, `正在测 ${target.address}（${i + 1}/${targets.length}）…`);
-			try {
-				const latency = await measureDomainLatency(parsed, signal);
-				const dl = await measureDomainDownload(parsed, seconds, signal);
-				rows.push({ address: target.address, latency, mbps: dl.mbps, method: dl.method, status: dl.method === "real" ? "完成" : "完成（相对）" });
-			} catch (error) {
-				if (signal.aborted) break;
-				rows.push({ address: target.address, latency: null, mbps: null, method: null, status: "失败" });
-			}
-			rows.sort((a, b) => (b.mbps === null || b.mbps === undefined ? -1 : b.mbps) - (a.mbps === null || a.mbps === undefined ? -1 : a.mbps));
-			renderLocalSpeedRows(rows);
-		}
-		setLocalSpeedProgress(signal.aborted ? 0 : 100, signal.aborted ? "已停止" : `测速完成，${rows.length} 个域名`);
-	} finally {
-		localSpeedRunning = false;
-		localSpeedController = null;
-		btn.textContent = "开始优选域名测速";
-		btn.classList.remove("danger");
-	}
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-	const btn = document.getElementById("localSpeedBtn");
-	if (btn) btn.addEventListener("click", runLocalSpeedTest);
-});
-
-function svgRunIcon() {
-	return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="16.5" cy="5.5" r="1.5"></circle><path d="M10 8.5 13 9l1.5 2.5 3 1"></path><path d="M7 20l2.2-4.7 2.6-1.1 1.4 2.3 3 1"></path><path d="M6 11l3-2.2 2.8.8 2 2"></path><path d="M5 19h3.5"></path></svg>';
-}
-
-// 优选结果每行直接测速：点延迟后面的「测速」按钮，只测这一行对应的域名，
-// 测完按钮本身直接显示相对下载速度，再点可重测。
-async function runSingleDomainSpeedTest(id, btn) {
-	if (!btn || btn.dataset.testing === "1") return;
-	const item = typeof state !== "undefined" && state.results ? state.results.find((entry) => String(entry.id) === String(id)) : null;
-	if (!item) return;
-	const parsed = parseProbeTarget(item.address);
-	if (!parsed) return;
-	btn.dataset.testing = "1";
-	btn.disabled = true;
-	btn.classList.remove("is-measured");
-	btn.classList.add("is-testing");
-	btn.textContent = "0.00Mbps";
-	try {
-		const seconds = 10;
-		const controller = new AbortController();
-		const dl = await measureDomainDownload(parsed, seconds, controller.signal, (mbps) => { if (btn) btn.textContent = `${mbps.toFixed(2)}Mbps`; });
-		item.mbps = dl.mbps;
-		item.method = dl.method;
-		btn.innerHTML = dl.method === "real" ? `<strong>${dl.mbps.toFixed(2)}Mbps</strong>` : `<strong>${dl.mbps.toFixed(2)}Mbps</strong>（相对）`;
-		btn.classList.remove("is-testing");
-		btn.classList.add("is-measured");
-	} catch (error) {
-		btn.classList.remove("is-testing");
-		btn.textContent = "失败";
-	} finally {
-		delete btn.dataset.testing;
-		btn.disabled = false;
-	}
 }

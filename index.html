@@ -85,7 +85,7 @@
 								<div class="label-row">
 									<label for="portSelect">优选端口</label>
 									<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
-										data-tip="选择「随机端口」时，将在 443、2053、2083、2087、2096、8443 中随机选取。80、8080、8880、2052、2082、2086、2095 为 HTTP 端口，需单独选择，延迟走 443 测同一边缘，结果端口仍为所选 80 系端口。">!</span>
+										data-tip="选择「随机端口」时，将在 443、2053、2083、2087、2096、8443 中随机选取。">!</span>
 								</div>
 								<select class="select" id="portSelect">
 									<option value="0">随机端口</option>
@@ -95,13 +95,6 @@
 									<option value="2087">2087</option>
 									<option value="2096">2096</option>
 									<option value="8443">8443</option>
-									<option value="80">80</option>
-									<option value="8080">8080</option>
-									<option value="8880">8880</option>
-									<option value="2052">2052</option>
-									<option value="2082">2082</option>
-									<option value="2086">2086</option>
-									<option value="2095">2095</option>
 								</select>
 							</div>
 							<div class="control-row-actions">
@@ -192,12 +185,11 @@
 									<th style="width: 18%"><button class="sort-header" type="button"
 											data-sort="latency">延迟(ms) <span class="sort-mark"
 												data-sort-mark="latency"></span></button></th>
-									<th class="speed-cell">速度(Mbps)</th>
 								</tr>
 							</thead>
 							<tbody id="resultBody">
 								<tr>
-									<td class="empty" colspan="7">暂无结果</td>
+									<td class="empty" colspan="6">暂无结果</td>
 								</tr>
 							</tbody>
 						</table>
@@ -239,8 +231,6 @@
 				</section>
 			</div>
 		</div>
-
-
 
 		<p class="bestcf-credit">
 			📮 优选域名投稿：编辑 <a href="https://github.com/cmliu/CF-Pages-BestCF/edit/main/cf_domains.txt" target="_blank"
