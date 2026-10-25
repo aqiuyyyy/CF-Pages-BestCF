@@ -2031,7 +2031,7 @@
 										<div class="label-row">
 											<label for="portInput">优选端口</label>
 											<span class="help-tip" tabindex="0" role="img" aria-label="端口说明"
-												data-tip="端口为 0 时按端口系列随机：443系只随机 443、2053、2083、2087、2096、8443，80系只随机 80、8080、8880、2052、2082、2086、2095，随机全部则两者都随机；80 系用 443 测同一边缘，结果端口仍为 80 系。">!</span>
+												data-tip="端口为 0 时按端口系列随机：443系只随机 443、2053、2083、2087、2096、8443，80系只随机 80、8080、8880、2052、2082、2086、2095；80 系用 443 测同一边缘，结果端口仍为 80 系。">!</span>
 										</div>
 										<input class="input" id="portInput" type="number" min="0" max="65535"
 											step="1" value="0">
@@ -2039,7 +2039,6 @@
 									<div class="field">
 										<label for="portSeriesSelect">端口系列</label>
 										<select class="select" id="portSeriesSelect">
-											<option value="all">随机全部</option>
 											<option value="tls">443系</option>
 											<option value="http">80系</option>
 										</select>
@@ -2204,7 +2203,7 @@
 		const TLS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 		const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
 		function isHttpPort(port) { return HTTP_PORTS.includes(Number(port)); }
-		let portSeriesMode = "all";
+		let portSeriesMode = "tls";
 		const BEST_HOSTS = [
 			//"bestcf.cmliussss.hidns.vip",
 			"ns.psb.kdns.fr"
@@ -4606,7 +4605,7 @@
 
 		function choosePort(preferredPort) {
 			if (preferredPort > 0) return preferredPort;
-			const pool = portSeriesMode === "tls" ? TLS_PORTS : portSeriesMode === "http" ? HTTP_PORTS : TLS_PORTS.concat(HTTP_PORTS);
+			const pool = portSeriesMode === "http" ? HTTP_PORTS : TLS_PORTS;
 			return pool[Math.floor(Math.random() * pool.length)];
 		}
 
@@ -4618,7 +4617,7 @@
 
 		function readSettings() {
 			[els.limitInput, els.timeoutInput, els.threadsInput, els.portInput].forEach((input) => clampNumberInput(input));
-			portSeriesMode = els.portSeriesSelect ? els.portSeriesSelect.value : "all";
+			portSeriesMode = els.portSeriesSelect ? els.portSeriesSelect.value : "tls";
 			return {
 				limit: Number(els.limitInput.value),
 				timeout: Number(els.timeoutInput.value),
